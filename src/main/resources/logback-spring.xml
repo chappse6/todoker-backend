@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    
+    <!-- Spring Boot Color Converter 추가 -->
+    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter" />
+    <conversionRule conversionWord="wex" converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter" />
+    <conversionRule conversionWord="wEx" converterClass="org.springframework.boot.logging.logback.ExtendedWhitespaceThrowableProxyConverter" />
+    
+    <!-- 개발 환경 프로파일 -->
+    <springProfile name="dev">
+        <!-- 콘솔 출력 설정 -->
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr([DEV]){blue} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx</pattern>
+            </encoder>
+        </appender>
+
+        <!-- SQL 전용 출력 설정 (중복 방지) -->
+        <appender name="SQL_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%clr(%d{HH:mm:ss.SSS}){faint} %clr([SQL]){magenta} %m%n</pattern>
+            </encoder>
+        </appender>
+
+        <!-- 애플리케이션 로그 -->
+        <logger name="com.todoker" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+
+        <!-- SQL 로그 (중복 방지) -->
+        <logger name="org.hibernate.SQL" level="INFO" additivity="false">
+            <appender-ref ref="SQL_CONSOLE"/>
+        </logger>
+
+        <!-- 파라미터 바인딩 (필요시에만) -->
+        <logger name="org.hibernate.orm.jdbc.bind" level="WARN" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+
+        <!-- Spring Security 로그 줄이기 -->
+        <logger name="org.springframework.security" level="WARN"/>
+
+        <!-- 루트 로거 -->
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- 프로덕션 환경 프로파일 -->
+    <springProfile name="prod">
+        <!-- 파일 출력 설정 -->
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/todoker-backend.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>logs/todoker-backend.%d{yyyy-MM-dd}.gz</fileNamePattern>
+                <maxHistory>30</maxHistory>
+            </rollingPolicy>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <!-- 프로덕션에서는 SQL 로그 비활성화 -->
+        <logger name="org.hibernate.SQL" level="WARN"/>
+        <logger name="com.todoker" level="INFO"/>
+
+        <root level="WARN">
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- 테스트 환경 프로파일 -->
+    <springProfile name="test">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [TEST] %-40.40logger{39}: %m%n</pattern>
+            </encoder>
+        </appender>
+
+        <!-- 테스트에서는 최소한의 로그만 -->
+        <logger name="com.todoker" level="INFO"/>
+        <logger name="org.hibernate.SQL" level="WARN"/>
+
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>

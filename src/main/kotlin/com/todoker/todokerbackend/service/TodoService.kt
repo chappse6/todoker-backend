@@ -18,7 +18,7 @@ class TodoService(
 ) {
     
     fun getTodoById(id: Long, user: User): Todo {
-        return todoRepository.findByIdAndUser(id, user)
+        return todoRepository.findByIdAndUserWithPomodoro(id, user)
             .orElseThrow { NoSuchElementException("Todo not found with id: $id") }
     }
     
@@ -27,11 +27,11 @@ class TodoService(
     }
     
     fun getTodosByDate(user: User, date: LocalDate): List<Todo> {
-        return todoRepository.findByUserAndDateWithCategory(user, date)
+        return todoRepository.findTodosOptimized(user = user, date = date)
     }
     
     fun getTodosByDateRange(user: User, startDate: LocalDate, endDate: LocalDate): List<Todo> {
-        return todoRepository.findByUserAndDateBetweenOrderByDateAscDisplayOrderAsc(user, startDate, endDate)
+        return todoRepository.findTodosOptimized(user = user, startDate = startDate, endDate = endDate)
     }
     
     fun getTodosByFilters(
@@ -40,11 +40,39 @@ class TodoService(
         categoryId: Long? = null,
         completed: Boolean? = null
     ): List<Todo> {
-        return todoRepository.findByFilters(user, date, categoryId, completed)
+        return todoRepository.findTodosOptimized(
+            user = user,
+            date = date,
+            categoryId = categoryId,
+            completed = completed
+        )
     }
     
     fun searchTodos(user: User, keyword: String): List<Todo> {
-        return todoRepository.findByUserAndTextContainingIgnoreCaseOrderByDateDescDisplayOrderAsc(user, keyword)
+        return todoRepository.findTodosOptimized(user = user, keyword = keyword)
+    }
+    
+    /**
+     * 통합 최적화 메서드 - 모든 조건을 하나의 메서드로 처리
+     */
+    fun getTodosOptimized(
+        user: User,
+        date: LocalDate? = null,
+        startDate: LocalDate? = null,
+        endDate: LocalDate? = null,
+        categoryId: Long? = null,
+        completed: Boolean? = null,
+        keyword: String? = null
+    ): List<Todo> {
+        return todoRepository.findTodosOptimized(
+            user = user,
+            date = date,
+            startDate = startDate,
+            endDate = endDate,
+            categoryId = categoryId,
+            completed = completed,
+            keyword = keyword
+        )
     }
     
     @Transactional
@@ -160,36 +188,45 @@ class TodoService(
     }
     
     fun getTodoStats(user: User, date: LocalDate): Map<String, Any> {
-        val totalCount = todoRepository.countByUserIdAndDate(user.id!!, date)
-        val completedCount = todoRepository.countCompletedByUserIdAndDate(user.id!!, date)
-        val completionRate = if (totalCount > 0) {
-            (completedCount.toDouble() / totalCount * 100).toInt()
-        } else 0
+        val stats = todoRepository.getTodoStatsOptimized(user.id!!, date = date)
         
-        return mapOf(
-            "total" to totalCount,
-            "completed" to completedCount,
-            "incomplete" to (totalCount - completedCount),
-            "completionRate" to completionRate
-        )
+        return if (stats.isNotEmpty()) {
+            val row = stats[0]
+            val total = (row[1] as Number).toLong()
+            val completed = (row[2] as Number).toLong()
+            val completionRate = (row[3] as Number).toInt()
+            
+            mapOf(
+                "total" to total,
+                "completed" to completed,
+                "incomplete" to (total - completed),
+                "completionRate" to completionRate
+            )
+        } else {
+            mapOf(
+                "total" to 0L,
+                "completed" to 0L,
+                "incomplete" to 0L,
+                "completionRate" to 0
+            )
+        }
     }
     
     fun getTodoStatsByDateRange(user: User, startDate: LocalDate, endDate: LocalDate): List<Map<String, Any>> {
-        val stats = todoRepository.getStatsByDateRange(user.id!!, startDate, endDate)
+        val stats = todoRepository.getTodoStatsOptimized(user.id!!, startDate = startDate, endDate = endDate)
         
         return stats.map { row ->
             val date = row[0] as LocalDate
             val total = (row[1] as Number).toLong()
             val completed = (row[2] as Number).toLong()
+            val completionRate = (row[3] as Number).toInt()
             
             mapOf(
                 "date" to date,
                 "total" to total,
                 "completed" to completed,
                 "incomplete" to (total - completed),
-                "completionRate" to if (total > 0) {
-                    (completed.toDouble() / total * 100).toInt()
-                } else 0
+                "completionRate" to completionRate
             )
         }
     }

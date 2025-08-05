@@ -5,6 +5,10 @@ import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.info.Contact
 import io.swagger.v3.oas.models.info.License
+import io.swagger.v3.oas.models.media.Content
+import io.swagger.v3.oas.models.media.MediaType
+import io.swagger.v3.oas.models.media.Schema
+import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.security.SecurityRequirement
 import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.servers.Server
@@ -31,7 +35,7 @@ class SwaggerConfig {
         val securityRequirement = SecurityRequirement()
             .addList(jwtSchemeName)
         
-        // JWT 보안 스키마 정의
+        // JWT 보안 스키마 정의 및 공통 응답 스키마 추가
         val components = Components()
             .addSecuritySchemes(
                 jwtSchemeName,
@@ -41,6 +45,88 @@ class SwaggerConfig {
                     .scheme("bearer")
                     .bearerFormat("JWT")
                     .description("JWT 토큰을 입력하세요 (Bearer 키워드는 자동으로 추가됩니다)")
+            )
+            // 공통 에러 응답 스키마
+            .addSchemas("ErrorResponse", 
+                Schema<Any>()
+                    .type("object")
+                    .title("에러 응답")
+                    .description("모든 에러에 대한 공통 응답 형식")
+                    .addProperty("success", Schema<Any>().type("boolean").example(false))
+                    .addProperty("error", 
+                        Schema<Any>()
+                            .type("object")
+                            .addProperty("code", Schema<Any>().type("string").description("에러 코드").example("A002"))
+                            .addProperty("message", Schema<Any>().type("string").description("에러 메시지").example("아이디 또는 비밀번호가 올바르지 않습니다"))
+                            .addProperty("details", Schema<Any>().type("object").description("에러 세부 정보 (선택사항)"))
+                    )
+                    .addProperty("timestamp", Schema<Any>().type("string").format("date-time").example("2025-01-14T10:30:00.123456"))
+            )
+            // 검증 에러 응답 스키마
+            .addSchemas("ValidationErrorResponse",
+                Schema<Any>()
+                    .type("object")
+                    .title("검증 에러 응답")
+                    .description("입력값 검증 실패 시 응답")
+                    .addProperty("success", Schema<Any>().type("boolean").example(false))
+                    .addProperty("error",
+                        Schema<Any>()
+                            .type("object")
+                            .addProperty("code", Schema<Any>().type("string").example("V001"))
+                            .addProperty("message", Schema<Any>().type("string").example("입력값 검증에 실패했습니다"))
+                            .addProperty("details", 
+                                Schema<Any>()
+                                    .type("object")
+                                    .example(mapOf(
+                                        "email" to "올바르지 않은 이메일 형식입니다",
+                                        "password" to "비밀번호는 8자 이상이어야 합니다"
+                                    ))
+                            )
+                    )
+                    .addProperty("timestamp", Schema<Any>().type("string").format("date-time"))
+            )
+            // 공통 응답 스키마들 추가
+            .addResponses("BadRequest", 
+                ApiResponse()
+                    .description("잘못된 요청")
+                    .content(Content().addMediaType("application/json", 
+                        MediaType().schema(Schema<Any>().`$ref`("#/components/schemas/ErrorResponse"))
+                    ))
+            )
+            .addResponses("Unauthorized",
+                ApiResponse()
+                    .description("인증 필요")  
+                    .content(Content().addMediaType("application/json",
+                        MediaType().schema(Schema<Any>().`$ref`("#/components/schemas/ErrorResponse"))
+                    ))
+            )
+            .addResponses("Forbidden",
+                ApiResponse()
+                    .description("접근 권한 없음")
+                    .content(Content().addMediaType("application/json",
+                        MediaType().schema(Schema<Any>().`$ref`("#/components/schemas/ErrorResponse")) 
+                    ))
+            )
+            .addResponses("NotFound",
+                ApiResponse()
+                    .description("리소스를 찾을 수 없음")
+                    .content(Content().addMediaType("application/json",
+                        MediaType().schema(Schema<Any>().`$ref`("#/components/schemas/ErrorResponse"))
+                    ))
+            )
+            .addResponses("ValidationError",
+                ApiResponse()
+                    .description("입력값 검증 실패")
+                    .content(Content().addMediaType("application/json",
+                        MediaType().schema(Schema<Any>().`$ref`("#/components/schemas/ValidationErrorResponse"))
+                    ))
+            )
+            .addResponses("InternalServerError",
+                ApiResponse()
+                    .description("서버 내부 오류")
+                    .content(Content().addMediaType("application/json",
+                        MediaType().schema(Schema<Any>().`$ref`("#/components/schemas/ErrorResponse"))
+                    ))
             )
         
         return OpenAPI()

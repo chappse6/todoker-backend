@@ -8,6 +8,8 @@ import com.todoker.todokerbackend.dto.response.TodoStatsResponse
 import com.todoker.todokerbackend.service.TodoService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
+import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
@@ -34,6 +36,11 @@ class TodoController(
      * 날짜, 카테고리, 완료 상태, 키워드로 필터링 가능
      */
     @Operation(summary = "할 일 목록 조회", description = "사용자의 할 일 목록을 조회합니다. 다양한 필터링 옵션을 지원합니다.")
+    @ApiResponses(value = [
+        SwaggerApiResponse(responseCode = "200", description = "할 일 목록 조회 성공"),
+        SwaggerApiResponse(responseCode = "401", description = "인증 필요 (A001)", ref = "#/components/responses/Unauthorized"),
+        SwaggerApiResponse(responseCode = "500", description = "서버 내부 오류 (C006)", ref = "#/components/responses/InternalServerError")
+    ])
     @GetMapping
     fun getTodos(
         @AuthenticationPrincipal user: User,
@@ -52,23 +59,17 @@ class TodoController(
     ): ApiResponse<List<TodoResponse>> {
         logger.debug("Getting todos for user: ${user.getUsername()}, filters: date=$date, categoryId=$categoryId, completed=$completed")
         
-        val todos = when {
-            // 키워드 검색이 있는 경우
-            !keyword.isNullOrBlank() -> todoService.searchTodos(user, keyword.trim())
-            
-            // 날짜 범위가 지정된 경우
-            startDate != null && endDate != null -> todoService.getTodosByDateRange(user, startDate, endDate)
-            
-            // 필터링 조건이 있는 경우
-            date != null || categoryId != null || completed != null -> 
-                todoService.getTodosByFilters(user, date, categoryId, completed)
-            
-            // 특정 날짜 조회
-            date != null -> todoService.getTodosByDate(user, date)
-            
-            // 모든 할 일 조회 (기본값: 오늘)
-            else -> todoService.getTodosByDate(user, LocalDate.now())
-        }
+        // 통합 최적화 쿼리 사용 - 모든 조건을 하나의 쿼리로 처리
+        val todos = todoService.getTodosOptimized(
+            user = user,
+            date = date ?: if (startDate == null && endDate == null && keyword.isNullOrBlank() 
+                              && categoryId == null && completed == null) LocalDate.now() else null,
+            startDate = startDate,
+            endDate = endDate,
+            categoryId = categoryId,
+            completed = completed,
+            keyword = keyword?.trim()?.takeIf { it.isNotBlank() }
+        )
         
         val response = todos.map { TodoResponse.from(it) }
         return ApiResponse.success(response)
@@ -94,6 +95,13 @@ class TodoController(
      * 새로운 할 일 생성
      */
     @Operation(summary = "할 일 생성", description = "새로운 할 일을 생성합니다.")
+    @ApiResponses(value = [
+        SwaggerApiResponse(responseCode = "201", description = "할 일 생성 성공"),
+        SwaggerApiResponse(responseCode = "400", description = "입력값 검증 실패 (V001)", ref = "#/components/responses/ValidationError"),
+        SwaggerApiResponse(responseCode = "401", description = "인증 필요 (A001)", ref = "#/components/responses/Unauthorized"),
+        SwaggerApiResponse(responseCode = "404", description = "카테고리를 찾을 수 없음 (CT001)", ref = "#/components/responses/NotFound"),
+        SwaggerApiResponse(responseCode = "500", description = "서버 내부 오류 (C006)", ref = "#/components/responses/InternalServerError")
+    ])
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun createTodo(

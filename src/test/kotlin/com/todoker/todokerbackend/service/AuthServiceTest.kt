@@ -2,7 +2,7 @@ package com.todoker.todokerbackend.service
 
 import com.todoker.todokerbackend.domain.user.User
 import com.todoker.todokerbackend.domain.user.UserRole
-import com.todoker.todokerbackend.exception.BusinessException
+import com.todoker.todokerbackend.exception.AuthException
 import com.todoker.todokerbackend.repository.RefreshTokenRepository
 import com.todoker.todokerbackend.security.jwt.JwtTokenProvider
 import io.mockk.*
@@ -15,6 +15,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.core.Authentication
+import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDateTime
 import java.util.*
 
@@ -29,12 +30,14 @@ class AuthServiceTest {
     private val jwtTokenProvider = mockk<JwtTokenProvider>()
     private val refreshTokenRepository = mockk<RefreshTokenRepository>()
     private val authenticationManager = mockk<AuthenticationManager>()
+    private val redisTemplate = mockk<RedisTemplate<String, String>>()
     
     private val authService = AuthService(
         userService,
         jwtTokenProvider,
         refreshTokenRepository,
-        authenticationManager
+        authenticationManager,
+        redisTemplate
     )
     
     private lateinit var testUser: User
@@ -112,11 +115,11 @@ class AuthServiceTest {
             every { authenticationManager.authenticate(any()) } throws BadCredentialsException("Bad credentials")
             
             // when & then
-            val exception = assertThrows<BusinessException> {
+            val exception = assertThrows<AuthException> {
                 authService.login(username, password)
             }
             
-            assertThat(exception.errorCode).isEqualTo("INVALID_CREDENTIALS")
+            assertThat(exception.errorCode.code).isEqualTo("A002")
             assertThat(exception.message).contains("아이디 또는 비밀번호가 올바르지 않습니다")
         }
     }
@@ -205,11 +208,11 @@ class AuthServiceTest {
             every { jwtTokenProvider.validateRefreshToken(invalidRefreshToken) } returns false
             
             // when & then
-            val exception = assertThrows<BusinessException> {
+            val exception = assertThrows<AuthException> {
                 authService.refreshAccessToken(invalidRefreshToken)
             }
             
-            assertThat(exception.errorCode).isEqualTo("INVALID_REFRESH_TOKEN")
+            assertThat(exception.errorCode.code).isEqualTo("A004")
         }
         
         @Test
@@ -222,11 +225,11 @@ class AuthServiceTest {
             every { refreshTokenRepository.findByToken(refreshTokenValue) } returns Optional.empty()
             
             // when & then
-            val exception = assertThrows<BusinessException> {
+            val exception = assertThrows<AuthException> {
                 authService.refreshAccessToken(refreshTokenValue)
             }
             
-            assertThat(exception.errorCode).isEqualTo("REFRESH_TOKEN_NOT_FOUND")
+            assertThat(exception.errorCode.code).isEqualTo("A005")
         }
         
         @Test
@@ -250,11 +253,11 @@ class AuthServiceTest {
             every { refreshTokenRepository.delete(expiredToken) } just runs
             
             // when & then
-            val exception = assertThrows<BusinessException> {
+            val exception = assertThrows<AuthException> {
                 authService.refreshAccessToken(refreshTokenValue)
             }
             
-            assertThat(exception.errorCode).isEqualTo("REFRESH_TOKEN_EXPIRED")
+            assertThat(exception.errorCode.code).isEqualTo("A006")
             verify { refreshTokenRepository.delete(expiredToken) }
         }
     }

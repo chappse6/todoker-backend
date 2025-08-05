@@ -68,13 +68,16 @@ class SecurityConfig(
                 auth
                     // 공개 엔드포인트 (인증 불필요)
                     .requestMatchers(
-                        "/api/auth/login",
-                        "/api/auth/register", 
-                        "/api/auth/refresh",
-                        "/api/health",
-                        "/api/actuator/**",
-                        "/api/swagger-ui/**",
-                        "/api/v3/api-docs/**",
+                        "/auth/login",
+                        "/auth/register", 
+                        "/auth/refresh",
+                        "/auth/check-username",
+                        "/auth/find-username",
+                        "/auth/reset-password",
+                        "/auth/reset-password/confirm",
+                        "/auth/reset-password/validate",
+                        "/health",
+                        "/actuator/**",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/swagger-resources/**"

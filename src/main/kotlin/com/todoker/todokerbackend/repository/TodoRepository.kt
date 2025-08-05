@@ -90,6 +90,62 @@ interface TodoRepository : JpaRepository<Todo, Long> {
     @Query("SELECT t FROM Todo t LEFT JOIN FETCH t.category WHERE t.user = :user AND t.date = :date ORDER BY t.displayOrder")
     fun findByUserAndDateWithCategory(@Param("user") user: User, @Param("date") date: LocalDate): List<Todo>
     
+    @Query("SELECT t FROM Todo t LEFT JOIN FETCH t.category LEFT JOIN FETCH t.pomodoroSessions WHERE t.user = :user AND t.date = :date ORDER BY t.displayOrder")
+    fun findByUserAndDateWithCategoryAndPomodoro(@Param("user") user: User, @Param("date") date: LocalDate): List<Todo>
+    
+    @Query("SELECT t FROM Todo t LEFT JOIN FETCH t.category LEFT JOIN FETCH t.pomodoroSessions WHERE t.id = :id AND t.user = :user")
+    fun findByIdAndUserWithPomodoro(@Param("id") id: Long, @Param("user") user: User): Optional<Todo>
+    
+    /**
+     * 통합 최적화 쿼리 - 모든 조건을 하나의 쿼리로 처리
+     * N+1 문제 해결을 위해 LEFT JOIN FETCH 사용
+     */
+    @Query("""
+        SELECT DISTINCT t FROM Todo t
+        LEFT JOIN FETCH t.category c
+        LEFT JOIN FETCH t.pomodoroSessions ps
+        WHERE t.user = :user
+        AND (:date IS NULL OR t.date = :date)
+        AND (:startDate IS NULL OR t.date >= :startDate)
+        AND (:endDate IS NULL OR t.date <= :endDate)
+        AND (:categoryId IS NULL OR c.id = :categoryId)
+        AND (:completed IS NULL OR t.completed = :completed)
+        AND (:keyword IS NULL OR LOWER(t.text) LIKE LOWER(CONCAT('%', :keyword, '%')))
+        ORDER BY t.date ASC, t.displayOrder ASC
+    """)
+    fun findTodosOptimized(
+        @Param("user") user: User,
+        @Param("date") date: LocalDate? = null,
+        @Param("startDate") startDate: LocalDate? = null,
+        @Param("endDate") endDate: LocalDate? = null,
+        @Param("categoryId") categoryId: Long? = null,
+        @Param("completed") completed: Boolean? = null,
+        @Param("keyword") keyword: String? = null
+    ): List<Todo>
+    
+    /**
+     * 통계 정보를 한 번의 쿼리로 조회
+     */
+    @Query("""
+        SELECT t.date as date,
+               COUNT(t.id) as total,
+               SUM(CASE WHEN t.completed = true THEN 1 ELSE 0 END) as completed,
+               ROUND(AVG(CASE WHEN t.completed = true THEN 100.0 ELSE 0.0 END), 0) as completionRate
+        FROM Todo t 
+        WHERE t.user.id = :userId 
+        AND (:date IS NULL OR t.date = :date)
+        AND (:startDate IS NULL OR t.date >= :startDate)
+        AND (:endDate IS NULL OR t.date <= :endDate)
+        GROUP BY t.date
+        ORDER BY t.date ASC
+    """)
+    fun getTodoStatsOptimized(
+        @Param("userId") userId: Long,
+        @Param("date") date: LocalDate? = null,
+        @Param("startDate") startDate: LocalDate? = null,
+        @Param("endDate") endDate: LocalDate? = null
+    ): List<Array<Any>>
+    
     fun findByUserAndDueDateTimeBetween(
         user: User,
         startDateTime: java.time.LocalDateTime,

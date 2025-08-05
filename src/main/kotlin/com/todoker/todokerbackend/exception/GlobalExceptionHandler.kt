@@ -22,16 +22,17 @@ class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
     
     /**
-     * 비즈니스 로직 예외 처리
+     * TodoException 및 하위 예외 처리
      */
-    @ExceptionHandler(BusinessException::class)
-    fun handleBusinessException(e: BusinessException): ResponseEntity<ApiResponse<Nothing>> {
-        logger.warn("Business exception: ${e.message}")
+    @ExceptionHandler(TodoException::class)
+    fun handleTodoException(e: TodoException): ResponseEntity<ApiResponse<Nothing>> {
+        logger.warn("TodoException occurred: ${e.code} - ${e.message}", e)
         
         return ResponseEntity
             .status(e.status)
-            .body(ApiResponse.error(e.errorCode, e.message ?: "Business error occurred"))
+            .body(ApiResponse.error(e.code, e.message, e.details))
     }
+    
     
     /**
      * 리소스를 찾을 수 없는 경우
@@ -86,8 +87,8 @@ class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
             .body(ApiResponse.error(
-                "VALIDATION_FAILED",
-                "Validation failed",
+                "V001",
+                "입력값 검증에 실패했습니다",
                 errors
             ))
     }
@@ -114,7 +115,10 @@ class GlobalExceptionHandler {
         
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
-            .body(ApiResponse.error("AUTHENTICATION_FAILED", "Invalid credentials"))
+            .body(ApiResponse.error(
+                "A002", 
+                "아이디 또는 비밀번호가 올바르지 않습니다"
+            ))
     }
     
     /**
@@ -126,7 +130,10 @@ class GlobalExceptionHandler {
         
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
-            .body(ApiResponse.error("USER_NOT_FOUND", "User not found"))
+            .body(ApiResponse.error(
+                "U001",
+                "사용자를 찾을 수 없습니다"
+            ))
     }
     
     /**
@@ -151,22 +158,13 @@ class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ApiResponse.error(
-                "INTERNAL_SERVER_ERROR",
-                "An unexpected error occurred. Please try again later."
+                "C006",
+                "서버 내부 오류가 발생했습니다"
             ))
     }
 }
 
 /**
- * 비즈니스 로직 예외를 위한 커스텀 예외 클래스
- */
-open class BusinessException(
-    val errorCode: String,
-    override val message: String?,
-    val status: HttpStatus = HttpStatus.BAD_REQUEST
-) : RuntimeException(message)
-
-/**
- * 접근 권한 예외
+ * 접근 권한 예외 (Spring Security 예외와 동일한 이름 사용)
  */
 class AccessDeniedException(message: String? = "Access denied") : RuntimeException(message)

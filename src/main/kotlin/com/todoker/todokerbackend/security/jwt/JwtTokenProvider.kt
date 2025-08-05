@@ -150,25 +150,29 @@ class JwtTokenProvider(
      */
     fun validateRefreshToken(token: String): Boolean {
         return try {
+            logger.debug("Validating refresh token: ${token.takeLast(10)}...")
             val claims = getClaimsFromToken(token)
             val now = Date()
             
+            logger.debug("Refresh token claims: subject=${claims.subject}, expiration=${claims.expiration}, type=${claims["type"]}")
+            
             // 만료 시간 확인
             if (claims.expiration.before(now)) {
-                logger.debug("Refresh token is expired")
+                logger.warn("Refresh token is expired: expiration=${claims.expiration}, now=$now")
                 return false
             }
             
             // 토큰 타입 확인
             val tokenType = claims["type"] as? String
             if (tokenType != "refresh") {
-                logger.debug("Invalid refresh token type: $tokenType")
+                logger.warn("Invalid refresh token type: expected=refresh, actual=$tokenType")
                 return false
             }
             
+            logger.debug("Refresh token validation successful")
             true
         } catch (e: Exception) {
-            logger.debug("Invalid refresh token: ${e.message}")
+            logger.warn("Invalid refresh token: ${e.message}", e)
             false
         }
     }

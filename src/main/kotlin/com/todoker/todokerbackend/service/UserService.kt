@@ -3,6 +3,7 @@ package com.todoker.todokerbackend.service
 import com.todoker.todokerbackend.domain.user.User
 import com.todoker.todokerbackend.domain.user.UserPreference
 import com.todoker.todokerbackend.domain.user.UserRole
+import com.todoker.todokerbackend.exception.UserException
 import com.todoker.todokerbackend.repository.UserPreferenceRepository
 import com.todoker.todokerbackend.repository.UserRepository
 import org.springframework.security.core.userdetails.UserDetails
@@ -56,10 +57,10 @@ class UserService(
         nickname: String? = null
     ): User {
         if (existsByUsername(username)) {
-            throw IllegalArgumentException("Username already exists: $username")
+            throw UserException.usernameAlreadyExists(username)
         }
         if (existsByEmail(email)) {
-            throw IllegalArgumentException("Email already exists: $email")
+            throw UserException.emailAlreadyExists(email)
         }
         
         val user = User(
@@ -90,7 +91,7 @@ class UserService(
         
         email?.let {
             if (it != user.email && existsByEmail(it)) {
-                throw IllegalArgumentException("Email already exists: $it")
+                throw UserException.emailAlreadyExists(it)
             }
         }
         
@@ -103,9 +104,16 @@ class UserService(
         val user = findById(userId)
         
         if (!passwordEncoder.matches(currentPassword, user.password)) {
-            throw IllegalArgumentException("Current password is incorrect")
+            throw UserException.invalidPassword()
         }
         
+        user.updatePassword(passwordEncoder.encode(newPassword))
+        return userRepository.save(user)
+    }
+    
+    @Transactional
+    fun updatePassword(userId: Long, newPassword: String): User {
+        val user = findById(userId)
         user.updatePassword(passwordEncoder.encode(newPassword))
         return userRepository.save(user)
     }

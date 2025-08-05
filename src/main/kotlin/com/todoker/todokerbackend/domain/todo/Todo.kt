@@ -112,7 +112,19 @@ class Todo(
     }
     
     fun getTotalPomodoroMinutes(): Int {
-        return pomodoroSessions.sumOf { it.durationMinutes }
+        return try {
+            pomodoroSessions.sumOf { it.durationMinutes }
+        } catch (e: Exception) {
+            0
+        }
+    }
+    
+    fun getPomodoroCount(): Int {
+        return try {
+            pomodoroSessions.size
+        } catch (e: Exception) {
+            0
+        }
     }
 }
 

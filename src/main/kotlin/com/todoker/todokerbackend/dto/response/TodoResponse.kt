@@ -43,7 +43,7 @@ data class TodoResponse(
                 category = todo.category?.let { CategorySummaryResponse.from(it) },
                 createdAt = todo.createdAt,
                 updatedAt = todo.updatedAt,
-                pomodoroCount = todo.pomodoroSessions.size,
+                pomodoroCount = todo.getPomodoroCount(),
                 totalPomodoroMinutes = todo.getTotalPomodoroMinutes()
             )
         }

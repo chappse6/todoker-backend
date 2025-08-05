@@ -226,24 +226,286 @@ Authorization: Bearer {access_token}
 ## 에러 처리
 
 ### 에러 응답 형식
+모든 에러는 다음과 같은 일관된 형식으로 응답됩니다:
+
 ```json
 {
   "success": false,
   "error": {
-    "code": "ERROR_CODE",
-    "message": "에러 메시지",
-    "field": "필드명 (validation 에러 시)"
+    "code": "A002",
+    "message": "아이디 또는 비밀번호가 올바르지 않습니다",
+    "details": {
+      "username": "john_doe"
+    }
   },
-  "timestamp": "2025-08-04T10:00:00"
+  "timestamp": "2025-01-14T10:30:00.123456"
 }
 ```
 
-### 주요 에러 코드
-- `UNAUTHORIZED` (401): 인증 필요
-- `ACCESS_DENIED` (403): 권한 없음
-- `NOT_FOUND` (404): 리소스 없음
-- `VALIDATION_ERROR` (400): 입력값 검증 실패
-- `INTERNAL_SERVER_ERROR` (500): 서버 에러
+### 에러 코드 체계
+
+#### 🔐 인증 & 권한 (A001-A999)
+| 코드 | HTTP | 메시지 | 설명 |
+|------|------|---------|------|
+| `A001` | 401 | 인증이 필요합니다 | 토큰이 없거나 만료됨 |
+| `A002` | 401 | 아이디 또는 비밀번호가 올바르지 않습니다 | 로그인 실패 |
+| `A003` | 401 | 토큰이 만료되었습니다 | Access Token 만료 |
+| `A004` | 401 | 유효하지 않은 토큰입니다 | 잘못된 토큰 형식 |
+| `A005` | 401 | 토큰을 찾을 수 없습니다 | 토큰 누락 |
+| `A006` | 401 | 리프레시 토큰이 만료되었습니다 | Refresh Token 만료 |
+| `A007` | 401 | 리프레시 토큰을 찾을 수 없습니다 | DB에서 토큰 없음 |
+| `A008` | 401 | 유효하지 않은 리프레시 토큰입니다 | 잘못된 Refresh Token |
+
+#### 👤 사용자 관리 (U001-U999)
+| 코드 | HTTP | 메시지 | 설명 |
+|------|------|---------|------|
+| `U001` | 404 | 사용자를 찾을 수 없습니다 | 존재하지 않는 사용자 |
+| `U002` | 409 | 이미 존재하는 사용자입니다 | 중복 사용자 |
+| `U003` | 409 | 이미 사용 중인 사용자명입니다 | 중복 username |
+| `U004` | 409 | 이미 사용 중인 이메일입니다 | 중복 email |
+| `U005` | 400 | 현재 비밀번호가 올바르지 않습니다 | 비밀번호 변경 시 |
+| `U006` | 403 | 비활성화된 사용자입니다 | 계정 비활성화 |
+| `U007` | 400 | 잘못된 사용자 상태입니다 | 잘못된 상태값 |
+
+#### ✅ Todo 관리 (T001-T999)
+| 코드 | HTTP | 메시지 | 설명 |
+|------|------|---------|------|
+| `T001` | 404 | 할 일을 찾을 수 없습니다 | 존재하지 않는 Todo |
+| `T002` | 409 | 이미 완료된 할 일입니다 | 중복 완료 처리 |
+| `T003` | 409 | 이미 대기 중인 할 일입니다 | 중복 대기 처리 |
+| `T004` | 400 | 잘못된 할 일 상태입니다 | 잘못된 상태값 |
+| `T005` | 403 | 해당 할 일에 접근할 권한이 없습니다 | 소유자가 아님 |
+| `T006` | 400 | 할 일 제목은 필수입니다 | 제목 누락 |
+| `T007` | 400 | 할 일 제목이 너무 깁니다 | 제목 길이 초과 |
+| `T008` | 400 | 잘못된 우선순위입니다 | 잘못된 priority 값 |
+| `T009` | 400 | 잘못된 마감일입니다 | 잘못된 due_date 형식 |
+
+#### 📁 카테고리 관리 (CT001-CT999)
+| 코드 | HTTP | 메시지 | 설명 |
+|------|------|---------|------|
+| `CT001` | 404 | 카테고리를 찾을 수 없습니다 | 존재하지 않는 카테고리 |
+| `CT002` | 409 | 이미 존재하는 카테고리입니다 | 중복 카테고리명 |
+| `CT003` | 403 | 해당 카테고리에 접근할 권한이 없습니다 | 소유자가 아님 |
+| `CT004` | 400 | 카테고리 이름은 필수입니다 | 이름 누락 |
+| `CT005` | 400 | 카테고리 이름이 너무 깁니다 | 이름 길이 초과 |
+| `CT006` | 409 | 카테고리에 할 일이 있어서 삭제할 수 없습니다 | 연관 Todo 존재 |
+| `CT007` | 400 | 잘못된 카테고리 색상입니다 | 잘못된 색상 형식 |
+
+#### 🍅 뽀모도로 관리 (P001-P999)
+| 코드 | HTTP | 메시지 | 설명 |
+|------|------|---------|------|
+| `P001` | 404 | 뽀모도로 세션을 찾을 수 없습니다 | 존재하지 않는 세션 |
+| `P002` | 409 | 이미 실행 중인 뽀모도로 세션이 있습니다 | 중복 실행 |
+| `P003` | 409 | 실행 중인 뽀모도로 세션이 없습니다 | 세션 없음 |
+| `P004` | 403 | 해당 뽀모도로 세션에 접근할 권한이 없습니다 | 소유자가 아님 |
+| `P005` | 400 | 잘못된 뽀모도로 시간입니다 | 잘못된 duration |
+| `P006` | 400 | 잘못된 뽀모도로 상태입니다 | 잘못된 상태값 |
+
+#### ✔️ 검증 오류 (V001-V999)
+| 코드 | HTTP | 메시지 | 설명 |
+|------|------|---------|------|
+| `V001` | 400 | 입력값 검증에 실패했습니다 | @Valid 검증 실패 |
+| `V002` | 400 | 필수 입력값이 누락되었습니다 | 필수 필드 누락 |
+| `V003` | 400 | 올바르지 않은 이메일 형식입니다 | 이메일 형식 오류 |
+| `V004` | 400 | 비밀번호 형식이 올바르지 않습니다 | 비밀번호 규칙 위반 |
+| `V005` | 400 | 사용자명 형식이 올바르지 않습니다 | username 규칙 위반 |
+| `V006` | 400 | 값이 너무 짧습니다 | 최소 길이 미만 |
+| `V007` | 400 | 값이 너무 깁니다 | 최대 길이 초과 |
+| `V008` | 400 | 올바르지 않은 날짜 형식입니다 | 날짜 형식 오류 |
+| `V009` | 400 | 올바르지 않은 숫자 형식입니다 | 숫자 형식 오류 |
+
+#### ⚠️ 공통 오류 (C001-C999)
+| 코드 | HTTP | 메시지 | 설명 |
+|------|------|---------|------|
+| `C001` | 400 | 잘못된 입력값입니다 | 일반적인 입력 오류 |
+| `C002` | 400 | 잘못된 타입입니다 | 타입 불일치 |
+| `C003` | 404 | 요청한 리소스를 찾을 수 없습니다 | 리소스 없음 |
+| `C004` | 409 | 잘못된 상태입니다 | 상태 충돌 |
+| `C005` | 403 | 접근 권한이 없습니다 | 권한 부족 |
+| `C006` | 500 | 서버 내부 오류가 발생했습니다 | 서버 오류 |
+
+### 에러 처리 JavaScript 예제
+
+#### 기본 에러 처리
+```javascript
+// API 호출 시 에러 처리
+try {
+  const response = await api.post('/auth/login', credentials);
+  return response.data.data;
+} catch (error) {
+  if (error.response?.data?.error) {
+    const apiError = error.response.data.error;
+    console.error(`[${apiError.code}] ${apiError.message}`);
+    
+    // 에러 코드별 처리
+    switch (apiError.code) {
+      case 'A002':
+        showError('로그인 정보를 확인해주세요');
+        break;
+      case 'U003':
+        showError('이미 사용 중인 사용자명입니다');
+        break;
+      case 'V001':
+        handleValidationErrors(apiError.details);
+        break;
+      default:
+        showError(apiError.message);
+    }
+  }
+  throw error;
+}
+```
+
+#### 검증 에러 처리
+```javascript
+function handleValidationErrors(details) {
+  // details 예시: {"email": "올바르지 않은 이메일 형식입니다", "password": "비밀번호는 8자 이상이어야 합니다"}
+  Object.entries(details || {}).forEach(([field, message]) => {
+    const inputElement = document.querySelector(`[name="${field}"]`);
+    if (inputElement) {
+      showFieldError(inputElement, message);
+    }
+  });
+}
+```
+
+#### React 에러 처리 Hook
+```typescript
+// hooks/useApiError.ts
+import { useState } from 'react';
+
+interface ApiError {
+  code: string;
+  message: string;
+  details?: Record<string, any>;
+}
+
+export const useApiError = () => {
+  const [error, setError] = useState<ApiError | null>(null);
+
+  const handleError = (error: any) => {
+    if (error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      setError(apiError);
+      
+      // 자동 로그아웃 처리
+      if (['A001', 'A003', 'A004', 'A006', 'A007', 'A008'].includes(apiError.code)) {
+        localStorage.clear();
+        window.location.href = '/login';
+      }
+    } else {
+      setError({
+        code: 'C006',
+        message: '네트워크 오류가 발생했습니다'
+      });
+    }
+  };
+
+  const clearError = () => setError(null);
+
+  return { error, handleError, clearError };
+};
+```
+
+#### TypeScript 타입 정의
+```typescript
+// types/error.ts
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: Record<string, any>;
+}
+
+export interface ErrorResponse {
+  success: false;
+  error: ApiError;
+  timestamp: string;
+}
+
+// 에러 코드 enum
+export enum ErrorCode {
+  // 인증 & 권한
+  UNAUTHORIZED = 'A001',
+  INVALID_CREDENTIALS = 'A002',
+  TOKEN_EXPIRED = 'A003',
+  INVALID_TOKEN = 'A004',
+  
+  // 사용자 관리
+  USER_NOT_FOUND = 'U001',
+  USERNAME_ALREADY_EXISTS = 'U003',
+  EMAIL_ALREADY_EXISTS = 'U004',
+  
+  // Todo 관리
+  TODO_NOT_FOUND = 'T001',
+  TODO_ACCESS_DENIED = 'T005',
+  
+  // 검증 오류
+  VALIDATION_FAILED = 'V001',
+  INVALID_EMAIL_FORMAT = 'V003',
+  
+  // 공통 오류
+  INTERNAL_SERVER_ERROR = 'C006'
+}
+```
+
+### 에러 복구 전략
+
+#### 토큰 만료 자동 처리
+```javascript
+// axios 인터셉터에서 자동 토큰 갱신
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.data?.error?.code === 'A003' && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        const response = await api.post('/auth/refresh', {
+          refresh_token: refreshToken
+        });
+        
+        const { access_token } = response.data.data;
+        localStorage.setItem('access_token', access_token);
+        
+        originalRequest.headers.Authorization = `Bearer ${access_token}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // 리프레시 실패 - 로그아웃
+        localStorage.clear();
+        window.location.href = '/login';
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+```
+
+#### 재시도 로직
+```javascript
+// 특정 에러에 대한 자동 재시도
+async function apiWithRetry(apiCall, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await apiCall();
+    } catch (error) {
+      const errorCode = error.response?.data?.error?.code;
+      
+      // 재시도 가능한 에러 코드
+      const retryableCodes = ['C006']; // 서버 내부 오류
+      
+      if (retryableCodes.includes(errorCode) && attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
+      
+      throw error;
+    }
+  }
+}
 
 ## TypeScript 타입 생성
 
@@ -307,11 +569,19 @@ export interface Category {
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-    field?: string;
-  };
+  error?: ApiError;
+  timestamp: string;
+}
+
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: Record<string, any>;
+}
+
+export interface ErrorResponse {
+  success: false;
+  error: ApiError;
   timestamp: string;
 }
 
@@ -551,4 +821,4 @@ curl -X GET http://localhost:8080/todos \
 
 ---
 
-*최종 업데이트: 2025-08-04*
+*최종 업데이트: 2025-01-14*
